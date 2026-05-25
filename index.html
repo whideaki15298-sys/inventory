@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="在庫チェック">
+<title>在庫チェック</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: #0a0a0a;
+    color: #e5e5e5;
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 90px;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #0a0a0a 100%);
+    border-bottom: 1px solid #222;
+    padding: 20px 16px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .header-sub { font-size: 11px; color: #666; letter-spacing: 3px; margin-bottom: 4px; }
+  .header-title { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 14px; }
+  .tabs { display: flex; gap: 8px; }
+  .tab {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid #333;
+    background: transparent;
+    color: #888;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: all 0.2s;
+  }
+  .tab.active { border-color: #6366f1; background: #6366f1; color: #fff; }
+  .banner {
+    margin: 12px 16px 0;
+    padding: 10px 14px;
+    background: #1c0000;
+    border: 1px solid #7f1d1d;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #f87171;
+  }
+  .list { padding: 12px 16px 0; }
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    transition: border-color 0.2s;
+  }
+  .item.low { border-color: #facc1544; }
+  .item.out { border-color: #f8717144; }
+  .status-btn {
+    min-width: 72px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: none;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .status-ok { background: #052e16; color: #4ade80; }
+  .status-low { background: #1c1400; color: #facc15; }
+  .status-out { background: #1c0000; color: #f87171; }
+  .item-name { flex: 1; font-size: 14px; font-weight: 500; }
+  .item-memo { font-size: 11px; color: #666; margin-top: 2px; }
+  .icon-btn {
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .empty { text-align: center; color: #555; padding: 40px 0; font-size: 14px; }
+  .bottom-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #0a0a0a;
+    border-top: 1px solid #222;
+    padding: 12px 16px;
+    display: flex;
+    gap: 10px;
+  }
+  .btn-primary {
+    flex: 1;
+    padding: 13px;
+    background: #6366f1;
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .btn-secondary {
+    padding: 13px 20px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    color: #888;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    align-items: flex-end;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    width: 100%;
+    background: #181818;
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 50px;
+    border-top: 1px solid #333;
+  }
+  .modal-title { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 16px; }
+  .modal-sub { font-size: 12px; color: #666; margin-bottom: 12px; margin-top: -10px; }
+  .modal input {
+    width: 100%;
+    padding: 12px 14px;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 15px;
+    font-family: 'Noto Sans JP', sans-serif;
+    outline: none;
+  }
+  .modal .btn-primary { margin-top: 12px; width: 100%; display: block; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-sub">STOCK MANAGER</div>
+  <div class="header-title">調味料 在庫チェック</div>
+  <div class="tabs">
+    <button class="tab active" onclick="setFilter('all')" id="tab-all">すべて</button>
+    <button class="tab" onclick="setFilter('out')" id="tab-out">要注文</button>
+    <button class="tab" onclick="setFilter('low')" id="tab-low">少ない</button>
+  </div>
+</div>
+
+<div id="banner" class="banner" style="display:none"></div>
+<div class="list" id="list"></div>
+
+<div class="bottom-bar">
+  <button class="btn-primary" onclick="openAdd()">＋ 追加</button>
+  <button class="btn-secondary" onclick="resetAll()">リセット</button>
+</div>
+
+<!-- Add modal -->
+<div class="modal-overlay" id="addModal" onclick="closeAdd()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">商品を追加</div>
+    <input type="text" id="newItemInput" placeholder="商品名を入力..." onkeydown="if(event.key==='Enter')addItem()">
+    <button class="btn-primary" onclick="addItem()">追加する</button>
+  </div>
+</div>
+
+<!-- Memo modal -->
+<div class="modal-overlay" id="memoModal" onclick="closeMemo()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title" id="memoTitle"></div>
+    <div class="modal-sub">メモを残せます（ブランド名など）</div>
+    <input type="text" id="memoInput" placeholder="例: コープのやつ / 小瓶でOK" onkeydown="if(event.key==='Enter')saveMemo()">
+    <button class="btn-primary" onclick="saveMemo()">保存</button>
+  </div>
+</div>
+
+<script>
+const INITIAL = [
+  "一味唐辛子","オイスターソース","オリーブオイル","片栗粉","からし",
+  "顆粒だし","かつお節","ケチャップ","ごま","ごま油","こしょう","コンソメ",
+  "サラダ油","酒（料理酒）","砂糖","塩","七味唐辛子","白だし","酢","醤油",
+  "ソース","鶏ガラスープの素","甜麺醤","豆板醤","にんにくチューブ","バター",
+  "ブラックペッパー","ポン酢","味噌","みりん","めんつゆ","マヨネーズ",
+  "焼肉のたれ","柚子胡椒","ラー油","粒マスタード","わさび","海苔","粉チーズ"
+];
+
+let items = [];
+let filter = "all";
+let editIdx = null;
+
+function load() {
+  try {
+    const saved = localStorage.getItem("inventory_v1");
+    if (saved) { items = JSON.parse(saved); return; }
+  } catch {}
+  items = INITIAL.map(name => ({ name, status: "ok", memo: "" }));
+}
+
+function save() {
+  try { localStorage.setItem("inventory_v1", JSON.stringify(items)); } catch {}
+}
+
+function setFilter(f) {
+  filter = f;
+  ["all","out","low"].forEach(k => {
+    document.getElementById("tab-"+k).classList.toggle("active", k === f);
+  });
+  render();
+}
+
+function cycleStatus(idx) {
+  const order = ["ok","low","out"];
+  items[idx].status = order[(order.indexOf(items[idx].status) + 1) % 3];
+  save(); render();
+}
+
+function removeItem(idx) {
+  items.splice(idx, 1);
+  save(); render();
+}
+
+function resetAll() {
+  items.forEach(i => i.status = "ok");
+  save(); render();
+}
+
+function openAdd() {
+  document.getElementById("addModal").classList.add("show");
+  setTimeout(() => document.getElementById("newItemInput").focus(), 100);
+}
+function closeAdd() { document.getElementById("addModal").classList.remove("show"); }
+function addItem() {
+  const val = document.getElementById("newItemInput").value.trim();
+  if (!val) return;
+  items.push({ name: val, status: "ok", memo: "" });
+  document.getElementById("newItemInput").value = "";
+  closeAdd(); save(); render();
+}
+
+function openMemo(idx) {
+  editIdx = idx;
+  document.getElementById("memoTitle").textContent = items[idx].name;
+  document.getElementById("memoInput").value = items[idx].memo || "";
+  document.getElementById("memoModal").classList.add("show");
+  setTimeout(() => document.getElementById("memoInput").focus(), 100);
+}
+function closeMemo() { document.getElementById("memoModal").classList.remove("show"); }
+function saveMemo() {
+  if (editIdx === null) return;
+  items[editIdx].memo = document.getElementById("memoInput").value.trim();
+  closeMemo(); save(); render();
+}
+
+function render() {
+  const outItems = items.filter(i => i.status === "out");
+  const banner = document.getElementById("banner");
+  if (outItems.length && filter !== "out") {
+    banner.style.display = "block";
+    banner.textContent = "🛒 要注文: " + outItems.map(i => i.name).join("、");
+  } else {
+    banner.style.display = "none";
+  }
+
+  const counts = {
+    all: items.length,
+    out: items.filter(i => i.status === "out").length,
+    low: items.filter(i => i.status === "low").length,
+  };
+  document.getElementById("tab-all").textContent = `すべて ${counts.all}`;
+  document.getElementById("tab-out").textContent = `要注文 ${counts.out}`;
+  document.getElementById("tab-low").textContent = `少ない ${counts.low}`;
+
+  const filtered = items.map((item, idx) => ({ ...item, idx }))
+    .filter(item => filter === "all" || item.status === filter);
+
+  const list = document.getElementById("list");
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty">該当なし</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(item => `
+    <div class="item ${item.status}">
+      <button class="status-btn status-${item.status}" onclick="cycleStatus(${item.idx})">
+        ${{ ok:"十分", low:"少ない", out:"要注文" }[item.status]}
+      </button>
+      <div style="flex:1">
+        <div class="item-name">${item.name}</div>
+        ${item.memo ? `<div class="item-memo">📝 ${item.memo}</div>` : ""}
+      </div>
+      <button class="icon-btn" onclick="openMemo(${item.idx})">✎</button>
+      <button class="icon-btn" style="color:#444;font-size:14px" onclick="removeItem(${item.idx})">✕</button>
+    </div>
+  `).join("");
+}
+
+load();
+render();
+</script>
+</body>
+</html>
